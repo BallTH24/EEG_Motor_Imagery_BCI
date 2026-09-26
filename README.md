@@ -1,11 +1,12 @@
 # EEG-Based Motor Imagery Classification for Human-Machine Interface (HMI)
 
-[![Target: BCC 2026](https://img.shields.io/badge/Brain%20Code%20Camp-BCC%202026-6C5CE7.svg)](https://braincode.club)
+[![Target: BCC 2026](https://img.shields.io/badge/Brain%20Code%20Camp-BCC%202026-6C5CE7.svg)](https://course2026-braincodecamp.web.app/intro.html)
+[![Community: BrainCode 101](https://img.shields.io/badge/Community-BrainCode%20101-00B894.svg)](https://braincode101.com)
 [![Python: 3.13.7](https://img.shields.io/badge/Python-3.13.7-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Acceleration: Apple Silicon MPS](https://img.shields.io/badge/Hardware%20Accel-Apple%20MPS-000000.svg?logo=apple&logoColor=white)](https://pytorch.org/docs/stable/notes/mps.html)
 [![BCI Framework: MNE & MOABB](https://img.shields.io/badge/BCI%20Framework-MNE%20%7C%20MOABB-FF6F00.svg)](https://moabb.neurotechx.org/)
 
-This repository hosts the research and engineering implementation of an **EEG-Based Motor Imagery (MI) Brain-Computer Interface (BCI)** designed for **Human-Machine Interface (HMI)** control, prepared for **Brain Code Camp (BCC) 2026**.
+This repository hosts the research and engineering implementation of an **EEG-Based Motor Imagery (MI) Brain-Computer Interface (BCI)** designed for **Human-Machine Interface (HMI)** control, prepared for [**Brain Code Camp (BCC) 2026**](https://course2026-braincodecamp.web.app/intro.html) by [**BrainCode 101**](https://braincode101.com).
 
 The project investigates the interplay between classical biophysical signal processing (**Common Spatial Pattern with Shrinkage**) and compact end-to-end deep learning (**PyTorch EEGNet**), validating performance on the benchmark **BCI Competition IV-2a** across 9 subjects under a rigorous cross-session evaluation protocol.
 
@@ -194,7 +195,7 @@ Open [`notebooks/bci_phase1_phase2_benchmarks.ipynb`](notebooks/bci_phase1_phase
 
 ## 8. Phase 3 Roadmap: Real-Time HMI and Embedded Integration
 
-For the final prototype in **Brain Code Camp (BCC 2026)**:
+For the final prototype in [**Brain Code Camp (BCC 2026)**](https://course2026-braincodecamp.web.app/intro.html):
 - [ ] **Lab Streaming Layer (LSL):** Online EEG stream ingestion with ring-buffer sliding window (2.0s window, 100ms step).
 - [ ] **Riemannian Manifold Pipeline:** Covariance estimation on symmetric positive-definite (SPD) manifold + Tangent Space projection.
 - [ ] **Decision Smoothing:** Dwell-time state machine and confidence thresholding to eliminate false positives in continuous idle state.
