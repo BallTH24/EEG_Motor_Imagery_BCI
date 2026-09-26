@@ -4,7 +4,7 @@
 [![Community: BrainCode 101](https://img.shields.io/badge/Community-BrainCode%20101-00B894.svg)](https://braincode101.com)
 [![Python: 3.13.7](https://img.shields.io/badge/Python-3.13.7-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Acceleration: Apple Silicon MPS](https://img.shields.io/badge/Hardware%20Accel-Apple%20MPS-000000.svg?logo=apple&logoColor=white)](https://pytorch.org/docs/stable/notes/mps.html)
-[![BCI Framework: MNE & MOABB](https://img.shields.io/badge/BCI%20Framework-MNE%20%7C%20MOABB-FF6F00.svg)](https://moabb.neurotechx.org/)
+[![BCI Framework: MNE & MOABB](https://img.shields.io/badge/BCI%20Framework-MNE%20%7C%20MOABB-FF6F00.svg)](https://moabb.neurotechx.com/docs/index.html)
 
 This repository hosts the research and engineering implementation of an **EEG-Based Motor Imagery (MI) Brain-Computer Interface (BCI)** designed for **Human-Machine Interface (HMI)** control, prepared for [**Brain Code Camp (BCC) 2026**](https://course2026-braincodecamp.web.app/intro.html) by [**BrainCode 101**](https://braincode101.com).
 
