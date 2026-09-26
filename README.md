@@ -88,9 +88,10 @@ The project investigates the interplay between classical biophysical signal proc
 EEG_Motor_Imagery_BCI/
 ├── README.md                                # Project Documentation & Research Blueprint
 ├── requirements.txt                         # Full locked Python dependencies
-├── BCI_env/                                 # Dedicated Python 3.13 virtual environment
-├── data/                                    # Local MNE / MOABB data cache (External M.2)
-│   └── MNE-bnci-data/                       # Downloaded BCI Competition IV-2a files
+├── .gitignore                               # Git ignore specification (excludes data & venv)
+├── BCI_env/                                 # [Local only, gitignored] Python 3.13 virtual environment
+├── data/                                    # [Local only, gitignored] Auto-downloaded MOABB data cache
+│   └── MNE-bnci-data/                       # Downloaded BCI Competition IV-2a files (on first run)
 ├── notebooks/
 │   └── bci_phase1_phase2_benchmarks.ipynb   # Executable research notebook (Phase 1 & 2)
 ├── results/
@@ -145,9 +146,9 @@ Cross-Session evaluation across all 9 subjects of BCI Competition IV-2a (Train: 
 
 ### Single-Trial Latency Profile (Batch Size = 1, Budget < 50 ms)
 - **CSP-LDA:** `0.127 ms (Median), 0.136 ms (P95)`
-- **CSP-SVM:** `0.118 ms (Median), 0.138 ms (P95)`
-- **EEGNet:** `0.632 ms (Median), 0.784 ms (P95)`
-*Measured trial-by-trial individually with hardware synchronization. All pipelines consume < 1.6% of the real-time HMI latency budget.*
+- **CSP-SVM:** `0.118 ms (Median), 0.126 ms (P95)`
+- **EEGNet:** `0.679 ms (Median), 0.843 ms (P95)`
+*Measured trial-by-trial individually with hardware synchronization. All pipelines consume < 1.7% of the real-time HMI latency budget.*
 
 ### Core Scientific Findings:
 1. **Headline Finding (RQ1): Analytical CSP Outperforms EEGNet Across 100% of Subjects (9/9):**
@@ -163,22 +164,31 @@ Cross-Session evaluation across all 9 subjects of BCI Competition IV-2a (Train: 
 
 ## 7. Quickstart and Execution Guide
 
-### 1. Activate Environment
-The virtual environment is pre-configured with all required BCI and scientific packages on the M.2 drive:
+### 1. Clone & Set Up Environment
+To reproduce the benchmarks on your local machine:
 
 ```bash
-cd "/Volumes/UGREEN M.2/EEG_Motor_Imagery_BCI"
-source BCI_env/bin/activate
+# Clone the repository
+git clone https://github.com/BallTH24/EEG_Motor_Imagery_BCI.git
+cd EEG_Motor_Imagery_BCI
+
+# Create and activate virtual environment
+python3 -m venv BCI_env
+source BCI_env/bin/activate       # On Windows: BCI_env\Scripts\activate
+
+# Install locked dependencies
+pip install -r requirements.txt
 ```
 
-### 2. Launch Jupyter Lab
-Launch Jupyter Lab with the dedicated `Python 3.13 (BCI_env)` kernel:
+### 2. Run the Benchmark Notebook
+Launch Jupyter Lab or open directly in VS Code:
 
 ```bash
-./BCI_env/bin/jupyter lab
+jupyter lab
 ```
 
-Open [`notebooks/bci_phase1_phase2_benchmarks.ipynb`](notebooks/bci_phase1_phase2_benchmarks.ipynb) and run all cells sequentially.
+Open [`notebooks/bci_phase1_phase2_benchmarks.ipynb`](notebooks/bci_phase1_phase2_benchmarks.ipynb) and execute all cells.  
+*Note: The BCI Competition IV-2a dataset will be automatically downloaded and cached into `data/` via MOABB on first run.*
 
 ---
 
