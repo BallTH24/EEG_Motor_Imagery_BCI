@@ -1,0 +1,30 @@
+[project]
+name = "eeg-motor-imagery-bci"
+version = "0.1.0"
+description = "EEG-based 4-class Motor Imagery BCI benchmarking Classical Spatial Filtering (CSP + Shrinkage LDA/SVM) against Compact Deep Learning (PyTorch EEGNet) on BCI Competition IV-2a for BCC 2026."
+readme = "README.md"
+requires-python = ">=3.11, <3.14"
+authors = [
+    { name = "Chitsanuphong Thongyingmak", email = "ballth146352@gmail.com" }
+]
+keywords = ["bci", "eeg", "motor-imagery", "eegnet", "csp", "pytorch", "neurotechnology"]
+dependencies = [
+    "mne>=1.8.0",
+    "moabb>=1.1.0",
+    "pyriemann>=0.7",
+    "torch>=2.2.0",
+    "scikit-learn>=1.5.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "matplotlib>=3.9.0",
+    "seaborn>=0.13.0",
+    "jupyterlab>=4.2.0",
+    "ipykernel>=6.29.0",
+    "nbformat>=5.10.0",
+    "tqdm>=4.66.0",
+    "edfio>=0.4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

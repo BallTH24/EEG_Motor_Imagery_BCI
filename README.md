@@ -2,7 +2,8 @@
 
 [![Target: BCC 2026](https://img.shields.io/badge/Brain%20Code%20Camp-BCC%202026-6C5CE7.svg)](https://course2026-braincodecamp.web.app/intro.html)
 [![Community: BrainCode 101](https://img.shields.io/badge/Community-BrainCode%20101-00B894.svg)](https://braincode101.com)
-[![Python: 3.13.7](https://img.shields.io/badge/Python-3.13.7-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Package Manager: uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Python: 3.13](https://img.shields.io/badge/Python-3.13-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Acceleration: Apple Silicon MPS](https://img.shields.io/badge/Hardware%20Accel-Apple%20MPS-000000.svg?logo=apple&logoColor=white)](https://pytorch.org/docs/stable/notes/mps.html)
 [![BCI Framework: MNE & MOABB](https://img.shields.io/badge/BCI%20Framework-MNE%20%7C%20MOABB-FF6F00.svg)](https://moabb.neurotechx.com/docs/index.html)
 
@@ -87,21 +88,24 @@ The project investigates the interplay between classical biophysical signal proc
 
 ```
 EEG_Motor_Imagery_BCI/
+├── pyproject.toml                           # Declarative project & dependency specification (PEP 621)
+├── uv.lock                                  # Fully deterministic cross-platform lockfile (Astral uv)
+├── .python-version                          # Pinned Python version (3.13)
+├── requirements.txt                         # Fallback locked requirements for standard pip
 ├── README.md                                # Project Documentation & Research Blueprint
-├── requirements.txt                         # Full locked Python dependencies
-├── .gitignore                               # Git ignore specification (excludes data & venv)
-├── BCI_env/                                 # [Local only, gitignored] Python 3.13 virtual environment
-├── data/                                    # [Local only, gitignored] Auto-downloaded MOABB data cache
-│   └── MNE-bnci-data/                       # Downloaded BCI Competition IV-2a files (on first run)
+├── .gitignore                               # Git ignore specification (excludes data & venvs)
 ├── notebooks/
 │   └── bci_phase1_phase2_benchmarks.ipynb   # Executable research notebook (Phase 1 & 2)
 ├── results/
 │   ├── phase1_baseline.csv                  # Exported CSP-LDA & CSP-SVM test metrics
 │   └── phase2_eegnet.csv                    # Exported EEGNet test metrics
-└── figures/
-    ├── csp_topomaps/                        # CSP spatial pattern scalp topographies
-    ├── eegnet_spatial_weights/              # Side-by-side CSP vs. EEGNet topomaps
-    └── model_comparison_benchmark.png       # Publication-ready grouped bar charts
+├── figures/
+│   ├── csp_topomaps/                        # CSP spatial pattern scalp topographies
+│   ├── eegnet_spatial_weights/              # Side-by-side CSP vs. EEGNet topomaps
+│   └── model_comparison_benchmark.png       # Publication-ready grouped bar charts
+├── data/                                    # [Local only, gitignored] Auto-downloaded MOABB data cache
+│   └── MNE-bnci-data/                       # Downloaded BCI Competition IV-2a files (on first run)
+└── .venv/                                   # [Local only, gitignored] uv virtual environment
 ```
 
 ---
@@ -165,31 +169,44 @@ Cross-Session evaluation across all 9 subjects of BCI Competition IV-2a (Train: 
 
 ## 7. Quickstart and Execution Guide
 
-### 1. Clone & Set Up Environment
-To reproduce the benchmarks on your local machine:
+### Method 1: Using `uv` (Recommended — Deterministic & Zero-Config)
+
+[Astral `uv`](https://github.com/astral-sh/uv) automatically installs the exact Python 3.13 runtime, resolves cross-platform lockfiles from `uv.lock`, and eliminates library version mismatches across macOS, Linux, and Windows:
 
 ```bash
-# Clone the repository
+# 1. Clone repository
 git clone https://github.com/BallTH24/EEG_Motor_Imagery_BCI.git
 cd EEG_Motor_Imagery_BCI
 
-# Create and activate virtual environment
+# 2. Sync exact locked environment (automatically provisions Python 3.13 & dependencies into .venv)
+uv sync
+
+# 3. Launch Jupyter Lab in the synced environment
+uv run jupyter lab
+```
+
+### Method 2: Traditional `venv` + `pip` (Fallback)
+
+If `uv` is not installed on your system:
+
+```bash
+# 1. Clone repository
+git clone https://github.com/BallTH24/EEG_Motor_Imagery_BCI.git
+cd EEG_Motor_Imagery_BCI
+
+# 2. Create and activate virtual environment
 python3 -m venv BCI_env
 source BCI_env/bin/activate       # On Windows: BCI_env\Scripts\activate
 
-# Install locked dependencies
+# 3. Install locked dependencies
 pip install -r requirements.txt
-```
 
-### 2. Run the Benchmark Notebook
-Launch Jupyter Lab or open directly in VS Code:
-
-```bash
+# 4. Launch Jupyter Lab
 jupyter lab
 ```
 
 Open [`notebooks/bci_phase1_phase2_benchmarks.ipynb`](notebooks/bci_phase1_phase2_benchmarks.ipynb) and execute all cells.  
-*Note: The BCI Competition IV-2a dataset will be automatically downloaded and cached into `data/` via MOABB on first run.*
+*Note: The BCI Competition IV-2a dataset (~1.6 GB) is automatically downloaded and cached into `data/` via MOABB on first run.*
 
 ---
 
