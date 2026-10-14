@@ -94,15 +94,22 @@ EEG_Motor_Imagery_BCI/
 ├── requirements.txt                         # Fallback locked requirements for standard pip
 ├── README.md                                # Project Documentation & Research Blueprint
 ├── .gitignore                               # Git ignore specification (excludes data & venvs)
+├── Presentation slides/                     # BCC presentation slide deck (PDF)
+├── src/                                     # Production HMI Engine Modules
+│   ├── __init__.py                          # Package initialization
+│   └── hmi_stream.py                        # Circular buffer, 2-stage decoder, debouncer & simulator
 ├── notebooks/
-│   └── bci_phase1_phase2_benchmarks.ipynb   # Executable research notebook (Phase 1 & 2)
+│   ├── bci_phase1_phase2_benchmarks.ipynb   # Executable research notebook (Phase 1 & 2)
+│   └── phase3_continuous_hmi.ipynb          # Continuous asynchronous HMI stream notebook (Phase 3)
 ├── results/
 │   ├── phase1_baseline.csv                  # Exported CSP-LDA & CSP-SVM test metrics
-│   └── phase2_eegnet.csv                    # Exported EEGNet test metrics
+│   ├── phase2_eegnet.csv                    # Exported EEGNet test metrics
+│   └── phase3_hmi_metrics.csv               # Exported continuous HMI streaming metrics
 ├── figures/
 │   ├── csp_topomaps/                        # CSP spatial pattern scalp topographies
 │   ├── eegnet_spatial_weights/              # Side-by-side CSP vs. EEGNet topomaps
-│   └── model_comparison_benchmark.png       # Publication-ready grouped bar charts
+│   ├── model_comparison_benchmark.png       # Publication-ready grouped bar charts
+│   └── phase3_continuous_timeline_sub01.png # Chronological continuous streaming timeline
 ├── data/                                    # [Local only, gitignored] Auto-downloaded MOABB data cache
 │   └── MNE-bnci-data/                       # Downloaded BCI Competition IV-2a files (on first run)
 └── .venv/                                   # [Local only, gitignored] uv virtual environment
@@ -112,9 +119,16 @@ EEG_Motor_Imagery_BCI/
 
 ## 5. Model Specifications
 
-### Phase 1: Classical Baseline
-- **CSP Decomposition:** Multiclass One-vs-Rest decomposition with 8 spatial components.
-- **Covariance Regularization:** Ledoit-Wolf shrinkage to ensure well-conditioned covariance matrices in high-dimensional channel space.
+### Experimental Filtering Parity Confirmation
+To guarantee a strictly controlled scientific benchmark of spatial filtering capabilities, both Classical (CSP) and Deep Learning (EEGNet) models operated on the exact same temporal filtering and trial epoching via MOABB:
+- **Bandpass Filter:** $8.0 - 32.0\text{ Hz}$ (5th-order zero-phase Butterworth filter covering sensorimotor $\mu$ and $\beta$ rhythms).
+- **Paradigm:** `moabb.paradigms.MotorImagery(fmin=8.0, fmax=32.0, events=['left_hand', 'right_hand', 'feet', 'tongue'], tmin=0.5, tmax=2.5)`
+- **Trial Length:** $2.0\text{ s}$ post-cue window ($T = 500$ timepoints at $250\text{ Hz}$).
+- **Scientific Control:** By strictly freezing the frequency band and epoch boundaries across all pipelines, any observed performance discrepancy isolates inductive spatial filtering and covariance regularization mechanics, eliminating spectral confounders.
+
+### Phase 1: Classical Baseline (CSP + Shrinkage-LDA / SVM)
+- **CSP Decomposition:** Multiclass One-vs-Rest decomposition with 8 spatial components ($m=4$ component pairs per class dichotomy).
+- **Covariance Regularization:** Analytical Ledoit-Wolf shrinkage to regularize empirical sample covariance matrices.
 - **Classifiers:**
   - **Pipeline A:** `LinearDiscriminantAnalysis(solver='lsqr', shrinkage='auto')`
   - **Pipeline B:** `SVC(kernel='rbf', C=1.0)`
@@ -128,7 +142,7 @@ EEG_Motor_Imagery_BCI/
   - Separable Conv: Kernel `(1, 16)`, 16 filters with Average Pooling and Dropout ($p=0.5$).
   - Dense Classifier: 4 output logits (`left_hand`, `right_hand`, `feet`, `tongue`).
   - Total Parameters: **~2,420 parameters** (ultra-lightweight for edge embedded deployment).
-- **Training Rigor:** Stratified 80/20 train/validation split from Session 1 with **Early Stopping** (patience = 10 on validation loss) to prevent small-sample overfitting.
+- **Training Rigor:** Stratified 80/20 train/validation split from Session 1 with **Exponential Moving Average (EMA, $\alpha=0.7$) Early Stopping** (`min_epochs=15`, `patience=10`) to prevent small-sample overfitting.
 
 ---
 
@@ -157,11 +171,14 @@ Cross-Session evaluation across all 9 subjects of BCI Competition IV-2a (Train: 
 
 ### Core Scientific Findings:
 1. **Headline Finding (RQ1): Analytical CSP Outperforms EEGNet Across 100% of Subjects (9/9):**
-   - In a single-session regime (288 trials), CSP with Ledoit-Wolf shrinkage decisively outperforms EEGNet in every single subject without exception (Mean $\kappa$: `0.485` vs. `0.285`).
-   - 4 out of 9 subjects (Sub 1, 3, 8, 9) surpass the strict **Substantial BCI Control threshold ($\kappa \ge 0.60$)** using CSP. Analytical inductive bias beats data-starved deep learning when training data is scarce.
-2. **Interpretability & Topomap Finding (RQ2): Focal Dipoles vs. Dispersed Weights:**
-   - CSP topographies form **clean, biophysically focal dipoles** over the motor homunculus (e.g., Subject 8 Pattern 3 exhibits a clean focal dipole over $C_z$ corresponding to bilateral feet imagery).
-   - In contrast, EEGNet learned depthwise filters exhibit **dispersed, multi-lobed patterns with higher spatial frequency noise**. Without explicit spatial priors or massive pre-training data, gradient descent fits distributed correlations rather than clean dipolar brain sources.
+   - In a single-session calibration regime (288 trials), CSP with Ledoit-Wolf shrinkage decisively outperforms EEGNet in every single subject without exception (Mean $\kappa$: `0.485` vs. `0.285`, Accuracy: `61.41%` vs. `46.37%`).
+   - 4 out of 9 subjects (Sub 1, 3, 8, 9) surpass the strict **Substantial BCI Control threshold ($\kappa \ge 0.60$)** using CSP, with Sub 9 reaching $\kappa = 0.713$. In contrast, EEGNet only achieved $\kappa > 0.60$ in a single participant (Sub 9, $\kappa = 0.606$).
+2. **Comprehensive Theory: Why Ledoit-Wolf Shrinkage Decisively Outperforms EEGNet:**
+   - **Strong Biophysical Inductive Bias vs. Sample Scarcity:** In small-sample regimes ($N = 288$ trials, 72 per class), CSP optimizes spatial projections via closed-form generalized eigenvalue decomposition of class covariance matrices ($\Sigma_1 w = \lambda \Sigma_2 w$). This solves an exact Rayleigh quotient maximizing bandpower variance ratio (ERD/ERS). In contrast, EEGNet (~2,420 parameters) suffers from severe sample starvation when optimizing unconstrained weights from scratch via stochastic gradient descent over non-convex cross-entropy loss.
+   - **Ledoit-Wolf Regularization Against Covariance Dispersion:** Estimating empirical sample covariance $S = \frac{1}{T-1} X X^T$ across 22 channels on short time windows ($T=500$) leads to severe eigenvalue dispersion (systematic overestimation of large eigenvalues and underestimation of small eigenvalues). Ledoit-Wolf shrinkage mathematically shrinks $S$ towards a well-conditioned identity target:
+     $$\Sigma_{\text{reg}} = (1 - \alpha) S + \alpha \frac{\text{Tr}(S)}{C} I$$
+     where the optimal shrinkage intensity $\alpha \in [0, 1]$ is computed analytically to minimize Frobenius mean squared error. This regularized covariance prevents noise overfitting and renders the spatial filters robust against cross-session electrode impedance drift and non-stationarity.
+   - **Focal Biophysical Dipoles vs. Dispersed Spatial Weights:** CSP topographies form **clean, biophysically focal dipoles** over primary motor areas ($C_3, C_4, C_z$) perfectly aligned with the sensorimotor homunculus (e.g., Sub 8 Pattern 3 exhibits a clean focal dipole over $C_z$ corresponding to bilateral feet imagery). In contrast, EEGNet's depthwise convolutional filters learn **dispersed, multi-lobed patterns with high spatial frequency noise**. In the absence of explicit spatial priors (e.g., Laplacian continuity or dipolar source constraints), unconstrained gradient descent fits distributed correlations that fail to generalize across sessions.
 3. **"BCI-Illiteracy" Phenotype (Subjects 2 & 5):**
    - Both CSP and EEGNet struggle on Subjects 2 and 5 ($\kappa \approx 0.05 - 0.23$). In computational neuroscience, this reflects low intrinsic sensorimotor rhythm modulation or atypical cortical folding (affecting 15–30% of users), proving that the pipeline captures genuine human neurobiology rather than code anomalies.
 
@@ -210,13 +227,31 @@ Open [`notebooks/bci_phase1_phase2_benchmarks.ipynb`](notebooks/bci_phase1_phase
 
 ---
 
-## 8. Phase 3 Roadmap: Real-Time HMI and Embedded Integration
+## 8. Phase 3: Continuous Asynchronous HMI Streaming Engine
 
-For the final prototype in [**Brain Code Camp (BCC 2026)**](https://course2026-braincodecamp.web.app/intro.html):
-- [ ] **Lab Streaming Layer (LSL):** Online EEG stream ingestion with ring-buffer sliding window (2.0s window, 100ms step).
-- [ ] **Riemannian Manifold Pipeline:** Covariance estimation on symmetric positive-definite (SPD) manifold + Tangent Space projection.
-- [ ] **Decision Smoothing:** Dwell-time state machine and confidence thresholding to eliminate false positives in continuous idle state.
-- [ ] **Hardware Actuation:** Microcontroller dispatch via UART / MQTT (ESP32/Arduino) to actuate robotic hand, assistive wheelchair, or drone simulator.
+In closed-loop Human-Machine Interfaces, EEG signals stream continuously without pre-segmented trials. We mitigate the "False Positive Paradox" (out-of-distribution overconfidence on idle data) by implementing a hierarchical gating architecture.
+
+### Architecture & Components (`src/hmi_stream.py`):
+1. **Circular Ring Buffer:** Fixed window $T = 500$ samples ($2.0\text{ s}$ at $250\text{ Hz}$), sliding step $\Delta t = 25$ samples ($100\text{ ms}$).
+2. **Stage 1 (True Binary Intent Gatekeeper):** A dedicated CSP-LDA binary classifier trained explicitly on inter-trial `REST` vs. motor imagery `ACTIVE` epochs. Windows scoring $P(\text{ACTIVE} \mid X) < 0.50$ are aggressively rejected as `IDLE`.
+3. **Stage 2 (Directional Decoder):** High-confidence active windows are routed to the 4-class analytical Ledoit-Wolf CSP + Shrinkage-LDA pipeline for directional classification.
+4. **Stage 3 (Temporal Dwell Debouncing & Refractory State Machine):** Requires $K = 3$ consecutive agreeing windows ($300\text{ ms}$ dwell time) before dispatching an actuator command, followed by a $1.0\text{ s}$ refractory lockout to prevent chatter.
+
+### Continuous Stream Benchmark Results (Session 2 `1test`):
+
+| Subject | Trial Detection Rate (%) | Trial Accuracy (%) | Mean Onset Latency (ms) | Median Onset Latency (ms) | Rest FPR (Triggers/min) | Step Latency Median (ms) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **01** | 75.00% | 50.67% | 1756.8 ms | 1681.0 ms | 12.41 | 0.127 ms |
+| **03** | 86.46% | 52.59% | 1918.0 ms | 1906.0 ms | 32.68 | 0.137 ms |
+| **08** | 92.01% | 40.50% | 1326.7 ms | 1011.0 ms | 37.14 | 0.240 ms |
+
+### Key Engineering Insights:
+- **Restoration of Precision via Hierarchical Gating:** Injecting explicit inter-trial `REST` data into a Stage 1 binary Gatekeeper doubled Trial Accuracy (from ~25% to ~50%) and drastically cut the Rest False Positive Rate (e.g., from 53.2 down to 12.4 triggers/min for Subject 1).
+- **Ultra-Low Compute Overhead:** Per-step execution (including buffer rolling and two consecutive CSP-LDA inferences) takes **$\le 0.24\text{ ms}$**, consuming less than **$0.5\%$** of the $50\text{ ms}$ real-time control budget.
+
+### Maker & Embedded Systems Integration Roadmap:
+- **UART / Serial Dispatcher:** Formatted payload packets `[HEADER, COMMAND_ID, CONFIDENCE, CRC]` sent via pySerial to ESP32 / Arduino microcontrollers.
+- **Actuator Hardware:** Driving micro-servos for robotic prosthetic hands, wheelchair directional motors, or visual feedback GUI via WebSockets.
 
 ---
 
