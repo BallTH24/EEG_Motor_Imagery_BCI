@@ -101,23 +101,28 @@ EEG_Motor_Imagery_BCI/
 ├── README.md                                # Project Documentation & Research Blueprint
 ├── .gitignore                               # Git ignore specification (excludes data & venvs)
 ├── Presentation slides/                     # BCC presentation slide deck (PDF)
+├── firmware/                                # Embedded Microcontroller Firmware
+│   └── esp32_bci_controller/                # Arduino / ESP32 C++ firmware
+│       └── esp32_bci_controller.ino         # UART receiver, CRC-8 parser & 500 ms fail-safe watchdog
 ├── src/                                     # Production HMI Engine Modules
 │   ├── __init__.py                          # Package initialization
-│   └── hmi_stream.py                        # Circular buffer, 2-stage decoder, debouncer & simulator
+│   └── hmi_stream.py                        # Circular buffer, 2-stage decoder, debouncer, UART encoder & emulator
 ├── notebooks/
 │   ├── bci_phase1_phase2_benchmarks.ipynb   # Executable research notebook (Phase 1 & 2)
-│   └── phase3_continuous_hmi.ipynb          # Continuous asynchronous HMI stream notebook (Phase 3)
+│   └── bci_phase3_phase4_continuous_hmi.ipynb # Continuous asynchronous HMI & HIL notebook (Phase 3 & 4)
 ├── results/
 │   ├── phase1_baseline.csv                  # Exported CSP-LDA & CSP-SVM test metrics
 │   ├── phase2_eegnet.csv                    # Exported EEGNet test metrics
 │   ├── phase3_hmi_metrics.csv               # Exported continuous HMI streaming metrics
+│   ├── phase4_hil_metrics.csv               # Exported cyber-physical HIL benchmark metrics
 │   └── negative_control_precue.csv          # Pre-cue resting baseline negative control metrics
 ├── figures/
 │   ├── csp_topomaps/                        # CSP spatial pattern scalp topographies
 │   ├── eegnet_spatial_weights/              # Side-by-side CSP vs. EEGNet topomaps
 │   ├── model_comparison_benchmark.png       # Publication-ready grouped bar charts
 │   ├── confusion_matrix_sub01.png           # Comparative cross-session confusion matrices
-│   └── phase3_continuous_timeline_sub01.png # Chronological continuous streaming timeline
+│   ├── phase3_continuous_timeline_sub01.png # Chronological continuous streaming timeline
+│   └── phase4_watchdog_verification.png     # Hardware watchdog fail-safe verification plot
 ├── data/                                    # [Local only, gitignored] Auto-downloaded MOABB data cache
 │   └── MNE-bnci-data/                       # Downloaded BCI Competition IV-2a files (on first run)
 └── .venv/                                   # [Local only, gitignored] uv virtual environment
@@ -181,7 +186,7 @@ Cross-Session evaluation across all 9 subjects of BCI Competition IV-2a (Train: 
 
 ### Core Scientific Findings:
 1. **Headline Finding (RQ1): Analytical CSP Outperforms EEGNet Across 100% of Subjects (9/9):**
-   - In a single-session calibration regime (288 trials), CSP with Ledoit-Wolf shrinkage decisively outperforms EEGNet in every single subject without exception (Mean $\kappa$: `0.485` vs. `0.285`, Accuracy: `61.41%` vs. `46.37%`).
+   - In a single-session calibration regime (288 trials), CSP with Ledoit-Wolf shrinkage decisively outperforms EEGNet in every single subject without exception (Mean $\kappa$: `0.486` vs. `0.285`, Accuracy: `61.42%` vs. `46.37%`).
    - 4 out of 9 subjects (Sub 1, 3, 8, 9) surpass the strict **Substantial BCI Control threshold ($\kappa \ge 0.60$)** using CSP, with Sub 9 reaching $\kappa = 0.713$. In contrast, EEGNet only achieved $\kappa > 0.60$ in a single participant (Sub 9, $\kappa = 0.606$).
 2. **Comprehensive Theory: Why Ledoit-Wolf Shrinkage Decisively Outperforms EEGNet:**
    - **Strong Biophysical Inductive Bias vs. Sample Scarcity:** In small-sample regimes ($N = 288$ trials, 72 per class), CSP optimizes spatial projections via closed-form generalized eigenvalue decomposition of class covariance matrices ($\Sigma_1 w = \lambda \Sigma_2 w$). This solves an exact Rayleigh quotient maximizing bandpower variance ratio (ERD/ERS). In contrast, EEGNet (~2,420 parameters) suffers from severe sample starvation when optimizing unconstrained weights from scratch via stochastic gradient descent over non-convex cross-entropy loss.
@@ -208,6 +213,7 @@ To inspect misclassification distributions and ensure balanced sensitivity acros
 
 *Full publication heatmap available at [`figures/confusion_matrix_sub01.png`](figures/confusion_matrix_sub01.png).*  
 **Key Diagnostic Finding:** CSP-LDA exhibits strong diagonal dominance on contralateral hand imagery (90% Left Hand, 83% Right Hand) with zero cross-leakage from lower-limb/tongue classes into hand predictions; residual confusion is strictly confined between midline Foot ($C_z$, 51%) and Tongue (86%). In contrast, PyTorch EEGNet suffers from severe class collapse toward Right Hand (misclassifying 53% of Left Hand trials as Right Hand) and Tongue (misclassifying 57% of Foot trials as Tongue), reflecting unconstrained spatial representations under small-sample calibration.
+
 #### 2. Scientific Negative Control (Pre-Cue Rest Baseline Check)
 To definitively eliminate the possibility of shortcut learning (e.g., memorizing visual cues, high-pass filtering phase drift, or session-specific DC baseline shifts), we evaluated the calibrated CSP-LDA model on pre-cue resting epochs ($t \in [-1.5, -0.5]\text{ s}$ relative to cue onset, $1.0\text{ s}$ duration) from the evaluation session (`1test`):
 
@@ -286,9 +292,9 @@ In closed-loop Human-Machine Interfaces, EEG signals stream continuously without
 
 | Subject | Trial Detection Rate (%) | Trial Accuracy (%) | Mean Onset Latency (ms) | Median Onset Latency (ms) | Rest FPR (Triggers/min) | Step Latency Median (ms) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **01** | 75.00% | 50.67% | 1756.8 ms | 1681.0 ms | 12.41 | 0.127 ms |
-| **03** | 86.46% | 52.59% | 1918.0 ms | 1906.0 ms | 32.68 | 0.137 ms |
-| **08** | 92.01% | 40.50% | 1326.7 ms | 1011.0 ms | 37.14 | 0.240 ms |
+| **01** | 75.00% | 50.67% | 1756.9 ms | 1681.0 ms | 12.41 | 0.128 ms |
+| **03** | 86.46% | 52.59% | 1918.1 ms | 1906.0 ms | 32.68 | 0.131 ms |
+| **08** | 92.01% | 40.50% | 1326.8 ms | 1011.0 ms | 37.14 | 0.240 ms |
 
 ### Key Engineering Insights:
 - **Restoration of Precision via Hierarchical Gating:** Injecting explicit inter-trial `REST` data into a Stage 1 binary Gatekeeper doubled Trial Accuracy (from ~25% to ~50%) and drastically cut the Rest False Positive Rate (e.g., from 53.2 down to 12.4 triggers/min for Subject 1).
@@ -331,6 +337,22 @@ To ensure microsecond-level parsing determinism and zero buffer fragmentation on
 ### Hardware Fail-Safe & Watchdog Timer
 - **Autonomous Watchdog Lockout ($\tau_{\text{watchdog}} = 500\text{ ms}$):** The ESP32 firmware configures a dedicated hardware timer. If no valid CRC8-verified frame is ingested within 500 ms (e.g., in case of host PC crash, wireless packet drop, or electrode disconnection), the controller automatically disengages all PWM actuators and forces an emergency neutral state (`0x00` IDLE / BRAKE).
 - **Physical Debounce Parity:** Matches the software-side $K=3$ dwell debouncing to prevent mechanical contact chatter and motor drive overheating.
+
+### Hardware-in-the-Loop (HIL) Verification Benchmarks
+Continuous playback of Session 2 (`1test`) through the 6-byte UART serializer and `ESP32WatchdogEmulator` ($N=3$ subjects, 6 runs each = 23,100 frames/subject):
+
+| Subject | Frames Sent | Valid Decoded | Mean Encode Latency | P95 Encode Latency | Bit-Flip Rejection | Watchdog Cutoff | Watchdog Trips |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **01** | 23,100 | 23,100 | 2.255 $\mu\text{s}$ | 2.375 $\mu\text{s}$ | 100.0% | 500.0 ms | 1 |
+| **03** | 23,100 | 23,100 | 2.250 $\mu\text{s}$ | 2.375 $\mu\text{s}$ | 100.0% | 500.0 ms | 1 |
+| **08** | 23,100 | 23,100 | 2.292 $\mu\text{s}$ | 2.417 $\mu\text{s}$ | 100.0% | 500.0 ms | 1 |
+| **Mean ± SD** | **23,100** | **23,100** | **2.266 ± 0.023 $\mu\text{s}$** | **2.389 ± 0.024 $\mu\text{s}$** | **100.0%** | **500.0 ms** | **1** |
+
+*Metrics exported to [`results/phase4_hil_metrics.csv`](results/phase4_hil_metrics.csv). Full publication verification figure available at [`figures/phase4_watchdog_verification.png`](figures/phase4_watchdog_verification.png).*  
+**Key Engineering Findings:**
+1. **Ultra-Low Serialization Overhead ($< 3\ \mu\text{s}$):** Binary frame encoding with on-the-fly CRC-8 takes only **$2.27\ \mu\text{s}$**, consuming less than **$0.003\%$** of the $100\text{ ms}$ transmission interval.
+2. **Deterministic Error Rejection:** Achieves **100.0% corrupted packet detection** across 1,000 synthetic single-bit flip trials.
+3. **Hardware Fail-Safe Safety:** In response to host communication loss, the watchdog forces state `0x00` (`IDLE / EMERGENCY_BRAKE`) at exactly $\Delta t = 500.0\text{ ms}$ with zero jitter.
 
 ### UN Sustainable Development Goals (SDGs) Alignment
 This research and open-source cyber-physical HMI pipeline directly aligns with the United Nations Sustainable Development Goals:

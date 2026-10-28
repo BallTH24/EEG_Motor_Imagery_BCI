@@ -358,3 +358,179 @@ class StreamSimulator:
             "step_records": step_records,
             "triggers": triggers,
         }
+
+
+# ==============================================================================
+# Phase 4: Cyber-Physical Deployment & Assistive Applications
+# Deterministic Binary UART Protocol & ESP32 Watchdog Emulator
+# ==============================================================================
+
+CMD_MAP: Dict[str, int] = {
+    "IDLE": 0x00,
+    "REST": 0x00,
+    "left_hand": 0x01,
+    "right_hand": 0x02,
+    "feet": 0x03,
+    "tongue": 0x04,
+}
+
+REVERSE_CMD_MAP: Dict[int, str] = {
+    0x00: "IDLE",
+    0x01: "left_hand",
+    0x02: "right_hand",
+    0x03: "feet",
+    0x04: "tongue",
+}
+
+
+def compute_crc8(data: bytes) -> int:
+    """
+    Computes CRC-8-CCITT checksum over input bytes.
+    Polynomial: x^8 + x^2 + x + 1 (0x07), Init: 0x00, Final XOR: 0x00.
+    """
+    crc = 0x00
+    for byte in data:
+        crc ^= byte
+        for _ in range(8):
+            if crc & 0x80:
+                crc = ((crc << 1) ^ 0x07) & 0xFF
+            else:
+                crc = (crc << 1) & 0xFF
+    return crc
+
+
+def encode_uart_frame(cmd_id: int, confidence: float) -> bytes:
+    """
+    Encodes command and confidence into a deterministic 6-byte binary UART frame.
+
+    Frame Structure:
+    [ Byte 0 ] 0xAA      : Frame Synchronization Preamble (High Byte)
+    [ Byte 1 ] 0x55      : Frame Synchronization Preamble (Low Byte)
+    [ Byte 2 ] CMD_ID    : Actuator Command (0x00=IDLE, 0x01=LEFT, 0x02=RIGHT, 0x03=FEET, 0x04=TONGUE/BRAKE)
+    [ Byte 3 ] CONF_BYTE : Quantized Confidence (floor(confidence * 255) in [0, 255])
+    [ Byte 4 ] CRC8      : CRC-8 over [CMD_ID, CONF_BYTE] with polynomial 0x07
+    [ Byte 5 ] 0x0D      : Carriage Return End-of-Frame Terminator ('\\r')
+    """
+    cmd = int(cmd_id) & 0xFF
+    conf_byte = int(np.clip(np.floor(confidence * 255.0), 0, 255))
+    crc = compute_crc8(bytes([cmd, conf_byte]))
+    return bytes([0xAA, 0x55, cmd, conf_byte, crc, 0x0D])
+
+
+class ESP32WatchdogEmulator:
+    """
+    Hardware-in-the-Loop (HIL) state machine emulator for ESP32 microcontroller receiver.
+    Parses continuous UART byte streams, validates CRC-8 integrity, and enforces
+    an autonomous fail-safe watchdog timer (500 ms).
+    """
+
+    STATE_WAIT_HEADER_1 = 0
+    STATE_WAIT_HEADER_2 = 1
+    STATE_READ_CMD = 2
+    STATE_READ_CONF = 3
+    STATE_READ_CRC = 4
+    STATE_WAIT_TAIL = 5
+
+    def __init__(self, watchdog_timeout_ms: float = 500.0) -> None:
+        self.watchdog_timeout_ms = watchdog_timeout_ms
+        self.parser_state = self.STATE_WAIT_HEADER_1
+        self.temp_cmd = 0
+        self.temp_conf = 0
+        self.temp_crc = 0
+
+        self.last_valid_cmd = 0
+        self.last_valid_conf = 0.0
+        self.last_valid_packet_ms = -float("inf")
+        self.actuator_state = 0  # 0x00 = IDLE / BRAKE
+
+        self.valid_frames_received = 0
+        self.corrupted_frames_rejected = 0
+        self.watchdog_trips = 0
+
+    def reset(self) -> None:
+        """Resets emulator parser state and counters."""
+        self.parser_state = self.STATE_WAIT_HEADER_1
+        self.temp_cmd = 0
+        self.temp_conf = 0
+        self.temp_crc = 0
+        self.last_valid_cmd = 0
+        self.last_valid_conf = 0.0
+        self.last_valid_packet_ms = -float("inf")
+        self.actuator_state = 0
+        self.valid_frames_received = 0
+        self.corrupted_frames_rejected = 0
+        self.watchdog_trips = 0
+
+    def check_watchdog(self, current_time_ms: float) -> bool:
+        """
+        Evaluates the watchdog timer. If elapsed time reaches or exceeds timeout,
+        forces actuators to 0x00 (IDLE/EMERGENCY_BRAKE).
+        Returns True if watchdog tripped.
+        """
+        if self.actuator_state != 0x00:
+            if (current_time_ms - self.last_valid_packet_ms) >= self.watchdog_timeout_ms:
+                self.actuator_state = 0x00
+                self.watchdog_trips += 1
+                return True
+        return False
+
+    def ingest_byte(self, byte_val: int, current_time_ms: float) -> bool:
+        """
+        Processes a single incoming byte through the FSM parser.
+        Returns True if a valid frame was successfully completed and validated.
+        """
+        self.check_watchdog(current_time_ms)
+        frame_accepted = False
+
+        if self.parser_state == self.STATE_WAIT_HEADER_1:
+            if byte_val == 0xAA:
+                self.parser_state = self.STATE_WAIT_HEADER_2
+        elif self.parser_state == self.STATE_WAIT_HEADER_2:
+            if byte_val == 0x55:
+                self.parser_state = self.STATE_READ_CMD
+            elif byte_val == 0xAA:
+                self.parser_state = self.STATE_WAIT_HEADER_2
+            else:
+                self.parser_state = self.STATE_WAIT_HEADER_1
+        elif self.parser_state == self.STATE_READ_CMD:
+            self.temp_cmd = byte_val
+            self.parser_state = self.STATE_READ_CONF
+        elif self.parser_state == self.STATE_READ_CONF:
+            self.temp_conf = byte_val
+            self.parser_state = self.STATE_READ_CRC
+        elif self.parser_state == self.STATE_READ_CRC:
+            self.temp_crc = byte_val
+            self.parser_state = self.STATE_WAIT_TAIL
+        elif self.parser_state == self.STATE_WAIT_TAIL:
+            if byte_val == 0x0D:
+                expected_crc = compute_crc8(bytes([self.temp_cmd, self.temp_conf]))
+                if self.temp_crc == expected_crc:
+                    self.last_valid_cmd = self.temp_cmd
+                    self.last_valid_conf = self.temp_conf / 255.0
+                    self.last_valid_packet_ms = current_time_ms
+                    self.actuator_state = self.temp_cmd
+                    self.valid_frames_received += 1
+                    frame_accepted = True
+                else:
+                    self.corrupted_frames_rejected += 1
+            else:
+                self.corrupted_frames_rejected += 1
+            self.parser_state = self.STATE_WAIT_HEADER_1
+
+        return frame_accepted
+
+    def ingest_bytes(self, data: bytes, current_time_ms: float) -> int:
+        """
+        Ingests a stream of bytes. Returns the count of valid frames decoded.
+        """
+        accepted_count = 0
+        for b in data:
+            if self.ingest_byte(b, current_time_ms):
+                accepted_count += 1
+        return accepted_count
+
+    def get_actuator_state(self, current_time_ms: float) -> int:
+        """Returns the current fail-safe actuator state after checking watchdog."""
+        self.check_watchdog(current_time_ms)
+        return self.actuator_state
+
