@@ -60,12 +60,12 @@ The project investigates the interplay between classical biophysical signal proc
                                           │
                   ┌───────────────────────┴───────────────────────┐
                   ▼                                               ▼
-     [ Phase 1: Classical Pipeline ]                 [ Phase 2: Compact Deep Learning ]
+     [ Phase 1: Biophysical Foundation ]             [ Phase 2: Deep Learning Benchmark ]
      - Filter: 8–32 Hz Bandpass                      - Temporal Conv (1×64, F1=8 filters)
      - Ledoit-Wolf Shrinkage Covariance              - Depthwise Spatial Conv (22×1, D=2)
      - Multiclass Common Spatial Pattern (CSP, n=8)  - Max-Norm Weight Constraint (||w||₂ ≤ 1.0)
      - Classifiers: Shrinkage-LDA & RBF-SVM          - Separable Conv (1×16 Pointwise, F2=16)
-                  │                                  - Optimization: Adam + ReduceLROnPlateau
+                  │                                  - Optimization: Adam + Early Stopping
                   │                                               │
                   └───────────────────────┬───────────────────────┘
                                           ▼
@@ -75,11 +75,17 @@ The project investigates the interplay between classical biophysical signal proc
                                           ▼
                        [ Performance & Biophysical Inspection ]
                       - Metrics: Cohen's Kappa (κ), Accuracy (%)
-                      - Topomaps: CSP Patterns vs. EEGNet Spatial Filters
+                      - Topomaps: Dipoles at C3, Cz, C4 vs. EEGNet Spatial Filters
+                      - Scientific Negative Control: Pre-Cue Baseline Check (~25%)
+                      - Diagnostic Confusion Matrix: Error Distribution Analysis
                                           │
                                           ▼
                          [ Phase 3: Real-Time HMI Engine ]
-             (Ring Buffer -> Sliding Inference -> Dwell Debouncing -> Serial/MQTT)
+             (Ring Buffer -> 2-Stage Gatekeeper -> Dwell Debouncing -> 1s Refractory)
+                                          │
+                                          ▼
+                     [ Phase 4: Cyber-Physical Deployment ]
+             (Deterministic 6-Byte UART -> ESP32 Watchdog -> Assistive Actuation)
 ```
 
 ---
@@ -104,11 +110,13 @@ EEG_Motor_Imagery_BCI/
 ├── results/
 │   ├── phase1_baseline.csv                  # Exported CSP-LDA & CSP-SVM test metrics
 │   ├── phase2_eegnet.csv                    # Exported EEGNet test metrics
-│   └── phase3_hmi_metrics.csv               # Exported continuous HMI streaming metrics
+│   ├── phase3_hmi_metrics.csv               # Exported continuous HMI streaming metrics
+│   └── negative_control_precue.csv          # Pre-cue resting baseline negative control metrics
 ├── figures/
 │   ├── csp_topomaps/                        # CSP spatial pattern scalp topographies
 │   ├── eegnet_spatial_weights/              # Side-by-side CSP vs. EEGNet topomaps
 │   ├── model_comparison_benchmark.png       # Publication-ready grouped bar charts
+│   ├── confusion_matrix_sub01.png           # Comparative cross-session confusion matrices
 │   └── phase3_continuous_timeline_sub01.png # Chronological continuous streaming timeline
 ├── data/                                    # [Local only, gitignored] Auto-downloaded MOABB data cache
 │   └── MNE-bnci-data/                       # Downloaded BCI Competition IV-2a files (on first run)
@@ -126,14 +134,15 @@ To guarantee a strictly controlled scientific benchmark of spatial filtering cap
 - **Trial Length:** $2.0\text{ s}$ post-cue window ($T = 500$ timepoints at $250\text{ Hz}$).
 - **Scientific Control:** By strictly freezing the frequency band and epoch boundaries across all pipelines, any observed performance discrepancy isolates inductive spatial filtering and covariance regularization mechanics, eliminating spectral confounders.
 
-### Phase 1: Classical Baseline (CSP + Shrinkage-LDA / SVM)
+### Phase 1: Biophysical Foundation & Classical Baseline (Ledoit-Wolf CSP + Shrinkage-LDA / SVM)
 - **CSP Decomposition:** Multiclass One-vs-Rest decomposition with 8 spatial components ($m=4$ component pairs per class dichotomy).
 - **Covariance Regularization:** Analytical Ledoit-Wolf shrinkage to regularize empirical sample covariance matrices.
+- **Biophysical Dipole Alignment:** Optimal spatial filters isolate clean contralateral dipoles centered at $C_3$ (right hand), $C_4$ (left hand), and midline $C_z$ (bilateral feet).
 - **Classifiers:**
   - **Pipeline A:** `LinearDiscriminantAnalysis(solver='lsqr', shrinkage='auto')`
   - **Pipeline B:** `SVC(kernel='rbf', C=1.0)`
 
-### Phase 2: PyTorch EEGNet
+### Phase 2: Deep Learning Benchmark & Scientific Validation (PyTorch EEGNet)
 - **Architecture:** Compact 2D Convolutional Neural Network (Lawhern et al., 2018).
   - Input Shape: `(Batch, 1, 22 Channels, 500 Timepoints)`
   - Temporal Conv: Kernel `(1, 64)`, 8 filters, padding `same`.
@@ -143,6 +152,7 @@ To guarantee a strictly controlled scientific benchmark of spatial filtering cap
   - Dense Classifier: 4 output logits (`left_hand`, `right_hand`, `feet`, `tongue`).
   - Total Parameters: **~2,420 parameters** (ultra-lightweight for edge embedded deployment).
 - **Training Rigor:** Stratified 80/20 train/validation split from Session 1 with **Exponential Moving Average (EMA, $\alpha=0.7$) Early Stopping** (`min_epochs=15`, `patience=10`) to prevent small-sample overfitting.
+- **Diagnostic Scientific Validation:** Evaluated via side-by-side Normalized Confusion Matrices and a Pre-Cue Resting Baseline Negative Control.
 
 ---
 
@@ -161,12 +171,12 @@ Cross-Session evaluation across all 9 subjects of BCI Competition IV-2a (Train: 
 | **07** | **61.81%** | **0.491** | 61.11% | 0.481 | 40.28% | 0.204 |
 | **08** | **78.12%** | **0.708** | **78.12%** | **0.708** | 57.64% | 0.435 |
 | **09** | **78.47%** | **0.713** | 76.04% | 0.681 | 70.49% | 0.606 |
-| **Mean ± SEM** | **61.41 ± 5.75%** | **0.485 ± 0.077** | **60.54 ± 5.67%** | **0.474 ± 0.076** | **46.37 ± 5.36%** | **0.285 ± 0.071** |
+| **Mean ± SEM** | **61.42 ± 5.77%** | **0.486 ± 0.077** | **60.53 ± 5.78%** | **0.474 ± 0.077** | **46.37 ± 5.36%** | **0.285 ± 0.071** |
 
 ### Single-Trial Latency Profile (Batch Size = 1, Budget < 50 ms)
-- **CSP-LDA:** `0.127 ms (Median), 0.136 ms (P95)`
-- **CSP-SVM:** `0.118 ms (Median), 0.126 ms (P95)`
-- **EEGNet:** `0.679 ms (Median), 0.843 ms (P95)`
+- **CSP-LDA:** `0.127 ms (Median), 0.134 ms (P95)`
+- **CSP-SVM:** `0.115 ms (Median), 0.121 ms (P95)`
+- **EEGNet:** `0.652 ms (Median), 0.810 ms (P95)`
 *Measured trial-by-trial individually with hardware synchronization. All pipelines consume < 1.7% of the real-time HMI latency budget.*
 
 ### Core Scientific Findings:
@@ -181,6 +191,41 @@ Cross-Session evaluation across all 9 subjects of BCI Competition IV-2a (Train: 
    - **Focal Biophysical Dipoles vs. Dispersed Spatial Weights:** CSP topographies form **clean, biophysically focal dipoles** over primary motor areas ($C_3, C_4, C_z$) perfectly aligned with the sensorimotor homunculus (e.g., Sub 8 Pattern 3 exhibits a clean focal dipole over $C_z$ corresponding to bilateral feet imagery). In contrast, EEGNet's depthwise convolutional filters learn **dispersed, multi-lobed patterns with high spatial frequency noise**. In the absence of explicit spatial priors (e.g., Laplacian continuity or dipolar source constraints), unconstrained gradient descent fits distributed correlations that fail to generalize across sessions.
 3. **"BCI-Illiteracy" Phenotype (Subjects 2 & 5):**
    - Both CSP and EEGNet struggle on Subjects 2 and 5 ($\kappa \approx 0.05 - 0.23$). In computational neuroscience, this reflects low intrinsic sensorimotor rhythm modulation or atypical cortical folding (affecting 15–30% of users), proving that the pipeline captures genuine human neurobiology rather than code anomalies.
+
+---
+
+### Diagnostic Scientific Validation
+
+#### 1. Comparative Confusion Matrix Analysis (Subject 01)
+To inspect misclassification distributions and ensure balanced sensitivity across bilateral and midline motor representations, we evaluate normalized confusion matrices across all 4 motor imagery classes for Subject 1:
+
+| True Class \ Predicted (CSP-LDA) | Left Hand | Right Hand | Foot | Tongue | True Class \ Predicted (EEGNet) | Left Hand | Right Hand | Foot | Tongue |
+| :--- | :---: | :---: | :---: | :---: | :--- | :---: | :---: | :---: | :---: |
+| **Left Hand ($C_4$)** | **0.90** | 0.01 | 0.03 | 0.06 | **Left Hand ($C_4$)** | **0.17** | 0.53 | 0.15 | 0.15 |
+| **Right Hand ($C_3$)** | 0.14 | **0.83** | 0.03 | 0.00 | **Right Hand ($C_3$)** | 0.00 | **1.00** | 0.00 | 0.00 |
+| **Foot ($C_z$)** | 0.00 | 0.00 | **0.51** | 0.49 | **Foot ($C_z$)** | 0.15 | 0.03 | **0.25** | 0.57 |
+| **Tongue** | 0.00 | 0.00 | 0.14 | **0.86** | **Tongue** | 0.01 | 0.00 | 0.25 | **0.74** |
+
+*Full publication heatmap available at [`figures/confusion_matrix_sub01.png`](figures/confusion_matrix_sub01.png).*  
+**Key Diagnostic Finding:** CSP-LDA exhibits strong diagonal dominance on contralateral hand imagery (90% Left Hand, 83% Right Hand) with zero cross-leakage from lower-limb/tongue classes into hand predictions; residual confusion is strictly confined between midline Foot ($C_z$, 51%) and Tongue (86%). In contrast, PyTorch EEGNet suffers from severe class collapse toward Right Hand (misclassifying 53% of Left Hand trials as Right Hand) and Tongue (misclassifying 57% of Foot trials as Tongue), reflecting unconstrained spatial representations under small-sample calibration.
+#### 2. Scientific Negative Control (Pre-Cue Rest Baseline Check)
+To definitively eliminate the possibility of shortcut learning (e.g., memorizing visual cues, high-pass filtering phase drift, or session-specific DC baseline shifts), we evaluated the calibrated CSP-LDA model on pre-cue resting epochs ($t \in [-1.5, -0.5]\text{ s}$ relative to cue onset, $1.0\text{ s}$ duration) from the evaluation session (`1test`):
+
+| Subject | Active MI Test Acc (%) | Pre-Cue Rest Acc (%) | Chance Level (%) | Delta from Chance (%) |
+| :---: | :---: | :---: | :---: | :---: |
+| **01** | 77.78% | 20.49% | 25.00% | -4.51% |
+| **02** | 42.71% | 25.00% | 25.00% | +0.00% |
+| **03** | 76.04% | 23.61% | 25.00% | -1.39% |
+| **04** | 56.60% | 25.35% | 25.00% | +0.35% |
+| **05** | 33.33% | 27.43% | 25.00% | +2.43% |
+| **06** | 47.92% | 25.00% | 25.00% | +0.00% |
+| **07** | 61.81% | 27.08% | 25.00% | +2.08% |
+| **08** | 78.12% | 23.61% | 25.00% | -1.39% |
+| **09** | 78.47% | 27.08% | 25.00% | +2.08% |
+| **Grand Mean** | **61.42%** | **24.96%** | **25.00%** | **-0.04%** |
+
+*Metrics exported to [`results/negative_control_precue.csv`](results/negative_control_precue.csv).*  
+**Empirical Verdict:** Across all 9 subjects, pre-cue baseline decoding converges exactly to theoretical chance (**24.96% vs. 25.00%**, $\Delta = -0.04\%$). This confirms zero shortcut learning, verifying that spatial filters activate exclusively upon genuine intention-induced sensorimotor rhythm modulation.
 
 ---
 
@@ -252,6 +297,47 @@ In closed-loop Human-Machine Interfaces, EEG signals stream continuously without
 ### Maker & Embedded Systems Integration Roadmap:
 - **UART / Serial Dispatcher:** Formatted payload packets `[HEADER, COMMAND_ID, CONFIDENCE, CRC]` sent via pySerial to ESP32 / Arduino microcontrollers.
 - **Actuator Hardware:** Driving micro-servos for robotic prosthetic hands, wheelchair directional motors, or visual feedback GUI via WebSockets.
+
+---
+
+## 9. Phase 4: Cyber-Physical Deployment & Assistive Applications
+
+In Phase 4, the decoded asynchronous intention is translated from edge inference software into physical actuation via a low-latency embedded bridge:
+
+```
+┌────────────────────────┐      Deterministic 6-Byte UART      ┌────────────────────────┐
+│  Phase 3 HMI Engine    │ ──────────────────────────────────> │  ESP32 Microcontroller │
+│  (Sliding CSP-LDA)     │     [AA 55 CMD CONF CRC8 0D]        │  (Hardware Watchdog)   │
+└────────────────────────┘                                     └───────────┬────────────┘
+                                                                           │
+                                        ┌──────────────────────────────────┴──────────────────────────────────┐
+                                        ▼                                                                     ▼
+                         [ Robotic Prosthetic Hand ]                                           [ Assistive Wheelchair Drive ]
+                         (PWM Servo Actuation: Left/Right)                                     (Differential DC Motors: Forward/Brake)
+```
+
+### Deterministic 6-Byte Binary UART Protocol Frame
+To ensure microsecond-level parsing determinism and zero buffer fragmentation on 8-bit/32-bit microcontrollers, commands are formatted into a fixed 6-byte binary packet:
+
+```
+[ Byte 0 ]   0xAA       : Frame Synchronization Preamble (High Byte)
+[ Byte 1 ]   0x55       : Frame Synchronization Preamble (Low Byte)
+[ Byte 2 ]   CMD_ID     : Actuator Command (0x00=IDLE, 0x01=LEFT, 0x02=RIGHT, 0x03=FEET, 0x04=TONGUE/BRAKE)
+[ Byte 3 ]   CONF_BYTE  : Quantized Confidence Level (floor(P * 255) ∈ [0, 255])
+[ Byte 4 ]   CRC8       : Cyclic Redundancy Check (Polynomial: x⁸ + x² + x + 1, Init: 0x00)
+[ Byte 5 ]   0x0D       : Carriage Return End-of-Frame Terminator ('\r')
+```
+
+### Hardware Fail-Safe & Watchdog Timer
+- **Autonomous Watchdog Lockout ($\tau_{\text{watchdog}} = 500\text{ ms}$):** The ESP32 firmware configures a dedicated hardware timer. If no valid CRC8-verified frame is ingested within 500 ms (e.g., in case of host PC crash, wireless packet drop, or electrode disconnection), the controller automatically disengages all PWM actuators and forces an emergency neutral state (`0x00` IDLE / BRAKE).
+- **Physical Debounce Parity:** Matches the software-side $K=3$ dwell debouncing to prevent mechanical contact chatter and motor drive overheating.
+
+### UN Sustainable Development Goals (SDGs) Alignment
+This research and open-source cyber-physical HMI pipeline directly aligns with the United Nations Sustainable Development Goals:
+- **UN SDG 3 (Good Health and Well-being — Target 3.8 & 3.b):**  
+  Restores functional independence, communication agency, and motor autonomy for patients suffering from severe neurodegenerative diseases (Amyotrophic Lateral Sclerosis, Locked-In Syndrome, high-level spinal cord injuries, and post-stroke paralysis).
+- **UN SDG 10 (Reduced Inequalities — Target 10.2):**  
+  By utilizing lightweight analytical algorithms ($< 0.24\text{ ms}$ compute overhead) that run on low-cost edge microcomputers (Raspberry Pi / Jetson) and accessible microcontrollers (ESP32 < $5 BOM), this architecture democratizes high-performance neurotechnology, bridging the accessibility divide for assistive medical devices across developing regions.
 
 ---
 
