@@ -6,6 +6,7 @@
  * Baud Rate: 115200 bps
  * Protocol: 6-Byte Deterministic Binary UART Frame
  * Fail-Safe: Autonomous 500 ms Hardware/Software Watchdog Timer
+ * Compatibility: Supports both Arduino ESP32 Core v2.x and v3.x+
  * ==============================================================================
  *
  * Frame Format:
@@ -18,6 +19,17 @@
  */
 
 #include <Arduino.h>
+
+// ==============================================================================
+// Arduino ESP32 Core Version Detection & PWM API Abstraction
+// Supports both Core v2.x (channel-based) and v3.x+ (pin-based)
+// ==============================================================================
+
+#if defined(ESP_ARDUINO_VERSION) && (ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0))
+    #define USE_ESP32_CORE_V3 1
+#else
+    #define USE_ESP32_CORE_V3 0
+#endif
 
 // ==============================================================================
 // Hardware Pin Definitions
@@ -35,13 +47,34 @@ static const uint8_t PIN_SERVO_PWM       = 25;
 // Status & Diagnostic Indicators
 static const uint8_t PIN_STATUS_LED      = 2;   // On-board LED
 
-// PWM Channels (ESP32 LEDC peripheral)
+// PWM Channels & Parameters (ESP32 LEDC peripheral)
 static const uint8_t PWM_CH_MOTOR_LEFT   = 0;
 static const uint8_t PWM_CH_MOTOR_RIGHT  = 1;
 static const uint8_t PWM_CH_SERVO        = 2;
 static const uint32_t PWM_FREQ_MOTOR     = 20000; // 20 kHz ultrasonic motor PWM
 static const uint32_t PWM_FREQ_SERVO     = 50;    // 50 Hz standard RC servo PWM
 static const uint8_t PWM_RES_BITS        = 8;     // 8-bit resolution (0-255)
+
+// ==============================================================================
+// Core v2.x / v3.x PWM Abstraction Primitives
+// ==============================================================================
+
+inline void pwm_setup_pin(uint8_t pin, uint8_t channel, uint32_t freq, uint8_t res_bits) {
+#if USE_ESP32_CORE_V3
+    ledcAttach(pin, freq, res_bits);
+#else
+    ledcSetup(channel, freq, res_bits);
+    ledcAttachPin(pin, channel);
+#endif
+}
+
+inline void pwm_write(uint8_t pin, uint8_t channel, uint32_t duty) {
+#if USE_ESP32_CORE_V3
+    ledcWrite(pin, duty);
+#else
+    ledcWrite(channel, duty);
+#endif
+}
 
 // ==============================================================================
 // Protocol Constants and State Machine
@@ -108,13 +141,13 @@ uint8_t compute_crc8(const uint8_t *data, size_t len) {
 
 void apply_fail_safe_brake() {
     // Cut all motor outputs to neutral / brake immediately
-    ledcWrite(PWM_CH_MOTOR_LEFT, 0);
-    ledcWrite(PWM_CH_MOTOR_RIGHT, 0);
+    pwm_write(PIN_MOTOR_LEFT_PWM, PWM_CH_MOTOR_LEFT, 0);
+    pwm_write(PIN_MOTOR_RIGHT_PWM, PWM_CH_MOTOR_RIGHT, 0);
     digitalWrite(PIN_MOTOR_LEFT_DIR, LOW);
     digitalWrite(PIN_MOTOR_RIGHT_DIR, LOW);
 
     // Release prosthetic grip to neutral position (1.5 ms pulse = 19/255 at 50 Hz)
-    ledcWrite(PWM_CH_SERVO, 19);
+    pwm_write(PIN_SERVO_PWM, PWM_CH_SERVO, 19);
 
     // Fast blink indicator for watchdog condition
     digitalWrite(PIN_STATUS_LED, (millis() / 100) % 2);
@@ -129,48 +162,48 @@ void execute_actuation(uint8_t cmd, uint8_t confidence) {
 
     switch (cmd) {
         case CMD_IDLE:
-            ledcWrite(PWM_CH_MOTOR_LEFT, 0);
-            ledcWrite(PWM_CH_MOTOR_RIGHT, 0);
+            pwm_write(PIN_MOTOR_LEFT_PWM, PWM_CH_MOTOR_LEFT, 0);
+            pwm_write(PIN_MOTOR_RIGHT_PWM, PWM_CH_MOTOR_RIGHT, 0);
             digitalWrite(PIN_MOTOR_LEFT_DIR, LOW);
             digitalWrite(PIN_MOTOR_RIGHT_DIR, LOW);
-            ledcWrite(PWM_CH_SERVO, 19); // Neutral grip
+            pwm_write(PIN_SERVO_PWM, PWM_CH_SERVO, 19); // Neutral grip
             break;
 
         case CMD_LEFT:
             // Differential turn left: Right motor forward, left motor idle
             digitalWrite(PIN_MOTOR_LEFT_DIR, LOW);
             digitalWrite(PIN_MOTOR_RIGHT_DIR, HIGH);
-            ledcWrite(PWM_CH_MOTOR_LEFT, 0);
-            ledcWrite(PWM_CH_MOTOR_RIGHT, motor_power);
-            ledcWrite(PWM_CH_SERVO, 19);
+            pwm_write(PIN_MOTOR_LEFT_PWM, PWM_CH_MOTOR_LEFT, 0);
+            pwm_write(PIN_MOTOR_RIGHT_PWM, PWM_CH_MOTOR_RIGHT, motor_power);
+            pwm_write(PIN_SERVO_PWM, PWM_CH_SERVO, 19);
             break;
 
         case CMD_RIGHT:
             // Differential turn right: Left motor forward, right motor idle
             digitalWrite(PIN_MOTOR_LEFT_DIR, HIGH);
             digitalWrite(PIN_MOTOR_RIGHT_DIR, LOW);
-            ledcWrite(PWM_CH_MOTOR_LEFT, motor_power);
-            ledcWrite(PWM_CH_MOTOR_RIGHT, 0);
-            ledcWrite(PWM_CH_SERVO, 19);
+            pwm_write(PIN_MOTOR_LEFT_PWM, PWM_CH_MOTOR_LEFT, motor_power);
+            pwm_write(PIN_MOTOR_RIGHT_PWM, PWM_CH_MOTOR_RIGHT, 0);
+            pwm_write(PIN_SERVO_PWM, PWM_CH_SERVO, 19);
             break;
 
         case CMD_FEET_FORWARD:
             // Drive straight forward with both motors
             digitalWrite(PIN_MOTOR_LEFT_DIR, HIGH);
             digitalWrite(PIN_MOTOR_RIGHT_DIR, HIGH);
-            ledcWrite(PWM_CH_MOTOR_LEFT, motor_power);
-            ledcWrite(PWM_CH_MOTOR_RIGHT, motor_power);
-            ledcWrite(PWM_CH_SERVO, 19);
+            pwm_write(PIN_MOTOR_LEFT_PWM, PWM_CH_MOTOR_LEFT, motor_power);
+            pwm_write(PIN_MOTOR_RIGHT_PWM, PWM_CH_MOTOR_RIGHT, motor_power);
+            pwm_write(PIN_SERVO_PWM, PWM_CH_SERVO, 19);
             break;
 
         case CMD_TONGUE_BRAKE:
             // Dynamic regenerative brake & prosthetic hand full grip closure
             digitalWrite(PIN_MOTOR_LEFT_DIR, LOW);
             digitalWrite(PIN_MOTOR_RIGHT_DIR, LOW);
-            ledcWrite(PWM_CH_MOTOR_LEFT, 0);
-            ledcWrite(PWM_CH_MOTOR_RIGHT, 0);
+            pwm_write(PIN_MOTOR_LEFT_PWM, PWM_CH_MOTOR_LEFT, 0);
+            pwm_write(PIN_MOTOR_RIGHT_PWM, PWM_CH_MOTOR_RIGHT, 0);
             // Grasp closed (2.0 ms pulse = 25/255 at 50 Hz)
-            ledcWrite(PWM_CH_SERVO, 25);
+            pwm_write(PIN_SERVO_PWM, PWM_CH_SERVO, 25);
             break;
 
         default:
@@ -195,15 +228,10 @@ void setup() {
     digitalWrite(PIN_MOTOR_RIGHT_DIR, LOW);
     digitalWrite(PIN_STATUS_LED, LOW);
 
-    // Setup LEDC hardware PWM channels
-    ledcSetup(PWM_CH_MOTOR_LEFT, PWM_FREQ_MOTOR, PWM_RES_BITS);
-    ledcAttachPin(PIN_MOTOR_LEFT_PWM, PWM_CH_MOTOR_LEFT);
-
-    ledcSetup(PWM_CH_MOTOR_RIGHT, PWM_FREQ_MOTOR, PWM_RES_BITS);
-    ledcAttachPin(PIN_MOTOR_RIGHT_PWM, PWM_CH_MOTOR_RIGHT);
-
-    ledcSetup(PWM_CH_SERVO, PWM_FREQ_SERVO, PWM_RES_BITS);
-    ledcAttachPin(PIN_SERVO_PWM, PWM_CH_SERVO);
+    // Setup LEDC hardware PWM channels using compatibility wrapper
+    pwm_setup_pin(PIN_MOTOR_LEFT_PWM, PWM_CH_MOTOR_LEFT, PWM_FREQ_MOTOR, PWM_RES_BITS);
+    pwm_setup_pin(PIN_MOTOR_RIGHT_PWM, PWM_CH_MOTOR_RIGHT, PWM_FREQ_MOTOR, PWM_RES_BITS);
+    pwm_setup_pin(PIN_SERVO_PWM, PWM_CH_SERVO, PWM_FREQ_SERVO, PWM_RES_BITS);
 
     apply_fail_safe_brake();
     last_valid_packet_time = millis();
