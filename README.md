@@ -364,7 +364,32 @@ This research and open-source cyber-physical HMI pipeline directly aligns with t
 ---
 
 ## References
-- Lawhern, V. J., et al. (2018). *EEGNet: a compact convolutional neural network for EEG-based brain–computer interfaces*. Journal of Neural Engineering, 15(5), 056013.
-- Blankertz, B., et al. (2008). *Optimizing spatial filters for robust EEG single-trial analysis*. IEEE Signal Processing Magazine, 25(1), 41-56.
-- Jayaram, V., & Barachant, A. (2018). *MOABB: trustworthy algorithm benchmarking for BCIs*. Journal of Neural Engineering, 15(6), 066011.
 
+### 1. Neurophysiological Foundations & BCI-Illiteracy
+- **Pfurtscheller, G., & Lopes da Silva, F. H.** (1999). Event-related EEG/MEG synchronization and desynchronization: basic principles. *Clinical Neurophysiology*, 110(11), 1842–1857. https://doi.org/10.1016/S1388-2457(99)00141-8
+- **Vidaurre, C., & Blankertz, B.** (2010). Towards a cure for BCI illiteracy. *Brain Topography*, 23(2), 194–198. https://doi.org/10.1007/s10548-009-0121-6
+- **Wolpaw, J. R., Birbaumer, N., McFarland, D. J., Pfurtscheller, G., & Vaughan, T. M.** (2002). Brain–computer interfaces for communication and control. *Clinical Neurophysiology*, 113(6), 767–791. https://doi.org/10.1016/S1388-2457(02)00057-3
+
+### 2. Benchmark Dataset & Standardized BCI Frameworks
+- **Brunner, C., Leeb, R., Müller-Putz, G. R., Schlögl, A., & Pfurtscheller, G.** (2008). *BCI Competition 2008 – Graz data set A* [Data set description]. Laboratory of Brain-Computer Interfaces, Graz University of Technology. https://www.bbci.de/competition/iv/
+- **Gramfort, A., Luessi, M., Larson, E., Engemann, D. A., Strohmeier, D., Brodbeck, C., Goj, R., Jas, M., Brooks, T., Parkkonen, L., & Hämäläinen, M. S.** (2013). MEG and EEG data analysis with MNE-Python. *Frontiers in Neuroscience*, 7, 267. https://doi.org/10.3389/fnins.2013.00267
+- **Jayaram, V., & Barachant, A.** (2018). MOABB: trustworthy algorithm benchmarking for BCIs. *Journal of Neural Engineering*, 15(6), 066011. https://doi.org/10.1088/1741-2552/aadea0
+- **Tangermann, M., Müller, K.-R., Aertsen, A., Birbaumer, N., Braun, C., Brunner, C., Leeb, R., Mehring, C., Miller, K. J., Müller-Putz, G. R., Nolte, G., Pfurtscheller, G., Sanelli, C., Schalk, G., Schlögl, A., Vidaurre, C., Waldert, S., & Blankertz, B.** (2012). Review of the BCI competition IV. *Frontiers in Neuroscience*, 6, 55. https://doi.org/10.3389/fnins.2012.00055
+
+### 3. Spatial Filtering, Covariance Shrinkage & Neuro-Interpretability (Phase 1)
+- **Blankertz, B., Tomioka, R., Lemm, S., Kawanabe, M., & Müller, K.-R.** (2008). Optimizing spatial filters for robust EEG single-trial analysis. *IEEE Signal Processing Magazine*, 25(1), 41–56. https://doi.org/10.1109/MSP.2008.4408441
+- **Haufe, S., Meinecke, F., Görgen, K., Dähne, S., Haynes, J.-D., Blankertz, B., & Bießmann, F.** (2014). On the interpretation of weight vectors of linear models in multivariate neuroimaging. *NeuroImage*, 87, 96–110. https://doi.org/10.1016/j.neuroimage.2013.10.067
+- **Ledoit, O., & Wolf, M.** (2004). A well-conditioned estimator for large-dimensional covariance matrices. *Journal of Multivariate Analysis*, 88(2), 365–411. https://doi.org/10.1016/S0047-259X(03)00096-4
+- **Lotte, F., & Guan, C.** (2011). Regularizing common spatial patterns to improve BCI designs: unified theory and new algorithms. *IEEE Transactions on Biomedical Engineering*, 58(2), 355–362. https://doi.org/10.1109/TBME.2010.2082539
+- **Ramoser, H., Müller-Gerking, J., & Pfurtscheller, G.** (2000). Optimal spatial filtering of single trial EEG during imagined hand movement. *IEEE Transactions on Rehabilitation Engineering*, 8(4), 441–446. https://doi.org/10.1109/86.895946
+
+### 4. Deep Learning & Small-Sample BCI Benchmarking (Phase 2)
+- **Lawhern, V. J., Solon, A. J., Waytowich, N. R., Gordon, S. M., Hung, C. P., & Lance, B. J.** (2018). EEGNet: a compact convolutional neural network for EEG-based brain–computer interfaces. *Journal of Neural Engineering*, 15(5), 056013. https://doi.org/10.1088/1741-2552/aace8c
+- **Lotte, F., Bougrain, L., Cichocki, A., Clerc, M., Congedo, M., Rakotomamonjy, A., & Yger, F.** (2018). A review of classification algorithms for EEG-based brain–computer interfaces: a 10 year update. *Journal of Neural Engineering*, 15(3), 031005. https://doi.org/10.1088/1741-2552/aab2f2
+
+### 5. Asynchronous Streaming & Cyber-Physical Assistive Control (Phase 3 & Phase 4)
+- **Mason, S. G., & Birch, G. E.** (2000). A brain-controlled switch for asynchronous control applications. *IEEE Transactions on Biomedical Engineering*, 47(10), 1297–1307. https://doi.org/10.1109/10.871402
+- **Millán, J. d. R., Rupp, R., Müller-Putz, G. R., Murray-Smith, R., Giugliemma, C., Tangermann, M., Vidaurre, C., Cincotti, F., Kübler, A., Leeb, R., Neuper, C., Müller, K.-R., & Mattia, D.** (2010). Combining brain–computer interfaces and assistive technologies: state-of-the-art and challenges. *Frontiers in Neuroscience*, 4, 161. https://doi.org/10.3389/fnins.2010.00161
+
+### 6. Experimental Benchmark Evaluation & Statistical Reliability
+- **Cohen, J.** (1960). A coefficient of agreement for nominal scales. *Educational and Psychological Measurement*, 20(1), 37–46. https://doi.org/10.1177/001316446002000104
